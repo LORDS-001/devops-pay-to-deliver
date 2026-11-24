@@ -119,7 +119,9 @@ export default function Page() {
 
   async function makeOffer() {
     if (!nodes.current.seller || !channels.seller || !routeReady || generated || attempt) return;
-    const value = await createOffer(nodes.current.seller, channels.seller, plaintext);
+    const value = await createOffer(nodes.current.seller, channels.seller, {
+      title: 'Encrypted result', fileName: 'result.txt', fileType: 'text/plain', bytes: new TextEncoder().encode(plaintext),
+    });
     save({ generatedOffer: value }); setGenerated(value); setStatus('Invoice created.');
   }
 
