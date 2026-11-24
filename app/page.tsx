@@ -254,6 +254,24 @@ export default function Page() {
   const routeReady = Boolean(connected.buyer && connected.seller && channels.buyer && ready(channels.buyer) && BigInt(channels.buyer.local_balance) >= 100_000_000n && channels.seller && ready(channels.seller) && BigInt(channels.seller.remote_balance) >= 100_000_000n);
   const canSubmit = Boolean(offer && tested && routeReady && !key && (!attempt || payment?.status === 'Failed'));
 
+  /** Why "Encrypt & create" is disabled, in the order routeReady checks it, so the user knows what to do next. */
+  function offerBlocker() {
+    if (!addresses.buyer || !addresses.seller) return 'Start both nodes first.';
+    if (!channels.buyer || !ready(channels.buyer) || !channels.seller || !ready(channels.seller)) {
+      return 'Both channels must be CHANNEL_READY. Click Refresh channel status on each node.';
+    }
+    if (!connected.seller) return 'The Freelancer node is not connected to Bottle B. Click Reconnect / check channel on it.';
+    if (!connected.buyer) return 'The Client node is not connected to Bottle B. Click Reconnect / check channel on it.';
+    if (BigInt(channels.buyer.local_balance) < 100_000_000n) return 'The Client needs at least 1 CKB on its side of its channel.';
+    if (BigInt(channels.seller.remote_balance) < 100_000_000n) {
+      return 'Bottle B needs at least 1 CKB on its side of the Freelancer channel to route the payment in. Click Send / check 5 CKB transfer.';
+    }
+    if (!title.trim()) return 'Enter a listing title.';
+    if (!deliverable()) return source === 'upload' ? 'Choose a file to upload.' : 'Enter a file name and the file contents.';
+    return '';
+  }
+  const blocker = generated || attempt ? '' : offerBlocker();
+
   return <main>
     <p className="eyebrow">Fiber Testnet · DevOps Pay-to-Deliver</p><h1>Get paid. Prove delivery.</h1>
     <p className="lede">A freelancer lists a DevOps deliverable, commits to its SHA-256 hash, shows a free preview and encrypts the file. The client reviews the listing and pays a 1 CKB Fiber Testnet invoice routed through Bottle B. Settling the payment reveals the decryption key, and the app proves delivery: the key matches the invoice payment hash, and the file matches the listing commitment.</p>
@@ -285,6 +303,7 @@ export default function Page() {
 </label>}
       {source === 'upload' && <small className="hint">{upload ? `Ready: ${upload.name} · ${formatBytes(upload.bytes.length)}` : 'No file chosen.'}</small>}
       <button disabled={busy || !routeReady || !title.trim() || !deliverable() || Boolean(generated || attempt)} onClick={() => void run(makeOffer)}>Encrypt & create 1 CKB Invoice</button>
+      {blocker && loaded && <small className="hint" role="note">{blocker}</small>}
       <textarea aria-label="Generated offer" readOnly value={generated} />
       <button disabled={!generated || busy} onClick={() => void run(async () => { await navigator.clipboard.writeText(generated); setStatus('Offer copied.'); })}>Copy offer</button>
     </section><section className="card"><h2>Client (Buyer A): review, pay & unlock</h2>
