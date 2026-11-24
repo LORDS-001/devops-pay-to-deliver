@@ -5,7 +5,7 @@ h1 { margin: 0; font-size: clamp(36px, 7vw, 72px); letter-spacing: -.05em; }
 .eyebrow { margin: 0; color: #a3f53a; font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
 .status { min-height: 24px; color: #b7fa66; }
 .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.card, .result { display: grid; gap: 12px; border: 1px solid #394139; padding: 20px; background: #111511; }
+.card, .result { display: grid; align-content: start; gap: 12px; border: 1px solid #394139; padding: 20px; background: #111511; }
 .route { display: flex; align-items: center; justify-content: center; gap: 14px; border: 1px solid #394139; padding: 14px; }
 .route span { color: #8e978d; }
 button, textarea, input, a { border: 1px solid #485048; padding: 12px; background: #151915; color: inherit; }
