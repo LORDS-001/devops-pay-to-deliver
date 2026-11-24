@@ -244,6 +244,8 @@ export default function Page() {
     save({ generatedOffer: '', buyerOfferText: '', attemptedPaymentHash: '', triedWithoutKey: false, completedSteps: [] });
     setGenerated(''); setReceived(''); setOffer(null); setAttempt(''); setTested(false);
     setPayment(null); setKey(''); setDelivery(null); setError('');
+    // The freelancer form returns to the sample deliverable too.
+    setTitle(sampleTitle); setSource('paste'); setFileName(sampleFileName); setPlaintext(sampleScript); setUpload(null);
     setStatus('Create a fresh listing and encrypted offer.');
   }
 
@@ -264,7 +266,7 @@ export default function Page() {
         <button disabled={busy} onClick={() => void run(() => open(role))}>{channels[role] ? 'Reconnect / check channel' : `Open ${channelFundingCkb} CKB channel`}</button>
         <button disabled={busy} onClick={() => void run(() => refresh(role))}>Refresh channel status</button>
       </>}
-      {channels[role] && <><code>{channels[role].state.state_name}</code><p>{role}: {ckb(channels[role].local_balance)} CKB · Bottle: {ckb(channels[role].remote_balance)} CKB</p></>}
+      {channels[role] && <><code>{channels[role].state.state_name}</code><p>{role === 'buyer' ? 'Client' : 'Freelancer'}: {ckb(channels[role].local_balance)} CKB · Bottle: {ckb(channels[role].remote_balance)} CKB</p></>}
     </section>)}</div>
     <section className="card"><h2>Liquidity</h2><button disabled={busy || !channels.seller || !ready(channels.seller) || BigInt(channels.seller.local_balance) < 500_000_000n} onClick={() => void run(moveLiquidity)}>Send / check 5 CKB transfer</button></section>
     <div className="grid exchange"><section className="card"><h2>Freelancer (Seller C): list & encrypt</h2>
@@ -280,7 +282,8 @@ export default function Page() {
         <textarea aria-label="Deliverable contents" disabled={busy || Boolean(generated)} value={plaintext} onChange={e => setPlaintext(e.target.value)} />
       </> : <label className="field"><span>File (max {formatBytes(maxDeliveryBytes)})</span>
         <input type="file" disabled={busy || Boolean(generated)} onChange={e => { const file = e.target.files?.[0]; e.target.value = ''; void run(() => chooseFile(file)); }} />
-        <small className="hint">{upload ? `${upload.name} · ${formatBytes(upload.bytes.length)}` : 'No file chosen.'}</small></label>}
+</label>}
+      {source === 'upload' && <small className="hint">{upload ? `Ready: ${upload.name} · ${formatBytes(upload.bytes.length)}` : 'No file chosen.'}</small>}
       <button disabled={busy || !routeReady || !title.trim() || !deliverable() || Boolean(generated || attempt)} onClick={() => void run(makeOffer)}>Encrypt & create 1 CKB Invoice</button>
       <textarea aria-label="Generated offer" readOnly value={generated} />
       <button disabled={!generated || busy} onClick={() => void run(async () => { await navigator.clipboard.writeText(generated); setStatus('Offer copied.'); })}>Copy offer</button>
@@ -296,14 +299,15 @@ export default function Page() {
           <dt>Size</dt><dd>{formatBytes(offer.listing.size)}</dd>
           <dt>Content hash (SHA-256)</dt><dd><code>{offer.listing.contentHash}</code></dd>
         </dl>
-        <pre aria-label="Free preview">{offer.listing.preview}</pre>
+        <span>Free preview</span>
+        <pre>{offer.listing.preview}</pre>
       </div>}
       {!tested && <button disabled={busy || !offer} onClick={() => void run(testLock)}>Decrypt without key</button>}
       {canSubmit && <button disabled={busy} onClick={() => void run(pay)}>{attempt ? 'Retry failed payment' : 'Pay 1 CKB'}</button>}
       {attempt && !key && <button disabled={busy || !offer || !addresses.buyer} onClick={() => void run(checkPayment)}>Check payment status</button>}
       <button disabled={busy || !offer || !key || Boolean(delivery)} onClick={() => void run(unlock)}>Decrypt & verify delivery</button>
     </section></div>
-    {payment?.status === 'Success' && <section className="card"><h2>Receipt</h2><p>Amount: 1 CKB · Fee: {ckb(payment.fee)} CKB · Total: {ckb(`0x${(100_000_000n + BigInt(payment.fee)).toString(16)}`)} CKB</p><code>{payment.payment_hash}</code></section>}
+    {payment?.status === 'Success' && <section className="card"><h2>Payment</h2><p>Amount: 1 CKB · Fee: {ckb(payment.fee)} CKB · Total: {ckb(`0x${(100_000_000n + BigInt(payment.fee)).toString(16)}`)} CKB</p><code>{payment.payment_hash}</code></section>}
     {delivery && offer && <section className="result"><h2>Delivered: {offer.listing.fileName}</h2>
       <p className={`check ${delivery.keyOk ? 'ok' : 'bad'}`}>{delivery.keyOk
         ? '✓ Key verified: SHA-256 of the revealed key matches the invoice payment hash'
@@ -313,8 +317,8 @@ export default function Page() {
         : '✗ Content mismatch: this file does NOT match the listing commitment'}</p>
       {delivery.text !== null ? <pre>{delivery.text}</pre> : <p>Binary file ({formatBytes(delivery.bytes.length)}). Download it to open.</p>}
       <div className="actions">
-        <button onClick={() => downloadBlob(delivery.bytes, offer.listing.fileName, offer.listing.fileType)}>Download {offer.listing.fileName}</button>
-        {payment?.status === 'Success' && <button onClick={downloadReceipt}>Download proof-of-purchase receipt</button>}
+        <button disabled={busy} onClick={() => void run(async () => downloadBlob(delivery.bytes, offer.listing.fileName, offer.listing.fileType))}>Download {offer.listing.fileName}</button>
+        {payment?.status === 'Success' && <button disabled={busy} onClick={() => void run(async () => downloadReceipt())}>Download proof-of-purchase receipt</button>}
       </div>
     </section>}
     {(generated || received) && (!attempt || settled) && <button disabled={busy} onClick={() => void run(async () => startAnotherOffer())}>Start another offer</button>}
