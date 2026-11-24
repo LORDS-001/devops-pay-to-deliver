@@ -10,8 +10,8 @@ invoice, and the file matches what was listed. Both sides leave with evidence: t
 the client has the file plus a proof-of-purchase receipt.
 
 - ▶ Demo video: <VIDEO_URL>
-- 🌐 Live demo: <LIVE_URL or "run locally">
-- 📄 Basic quest write-up: <BASIC_REPO_URL>
+- 🌐 Live demo: https://devops-pay-to-deliver.vercel.app (each visitor funds their own Testnet nodes; the full flow is in the demo video)
+- 📄 Basic quest write-up: https://github.com/LORDS-001/ckb-fiber-campaign8-basic
 
 Built for **Build on CKB, Campaign #8 (Advanced quest)** on top of the official Fiber
 [Encrypted data payment](https://www.fiber.world/docs/build/encrypted-data-payment) starter kit.
