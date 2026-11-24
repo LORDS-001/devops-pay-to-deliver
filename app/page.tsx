@@ -239,12 +239,15 @@ export default function Page() {
   }
 
   function startAnotherOffer() {
-    if (busy || (attempt && payment?.status !== 'Failed')) return;
+    // A pending or unchecked payment still blocks a restart; a settled one (Failed or Success) does not.
+    if (busy || (attempt && !settled)) return;
     save({ generatedOffer: '', buyerOfferText: '', attemptedPaymentHash: '', triedWithoutKey: false, completedSteps: [] });
     setGenerated(''); setReceived(''); setOffer(null); setAttempt(''); setTested(false);
     setPayment(null); setKey(''); setDelivery(null); setError('');
-    setStatus('Create a fresh encrypted offer.');
+    setStatus('Create a fresh listing and encrypted offer.');
   }
+
+  const settled = payment?.status === 'Failed' || payment?.status === 'Success';
 
   const routeReady = Boolean(connected.buyer && connected.seller && channels.buyer && ready(channels.buyer) && BigInt(channels.buyer.local_balance) >= 100_000_000n && channels.seller && ready(channels.seller) && BigInt(channels.seller.remote_balance) >= 100_000_000n);
   const canSubmit = Boolean(offer && tested && routeReady && !key && (!attempt || payment?.status === 'Failed'));
@@ -314,6 +317,6 @@ export default function Page() {
         {payment?.status === 'Success' && <button onClick={downloadReceipt}>Download proof-of-purchase receipt</button>}
       </div>
     </section>}
-    {(generated || received) && (!attempt || payment?.status === 'Failed') && <button disabled={busy} onClick={() => void run(async () => startAnotherOffer())}>Start another offer</button>}
+    {(generated || received) && (!attempt || settled) && <button disabled={busy} onClick={() => void run(async () => startAnotherOffer())}>Start another offer</button>}
   </main>;
 }
