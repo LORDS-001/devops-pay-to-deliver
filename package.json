@@ -6,7 +6,7 @@
     "build": "next build",
     "typecheck": "tsc --noEmit",
     "start": "next start",
-    "test": "node --experimental-strip-types --test payment.test.mjs"
+    "test": "node --experimental-strip-types --test payment.test.mjs delivery.test.mjs"
   },
   "dependencies": {
     "@fiber-pay/sdk": "0.3.1",
