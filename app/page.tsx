@@ -3,8 +3,8 @@
 import { channelFundingGuidance } from '../lib/channel-funding';
 import { useEffect, useRef, useState } from 'react';
 import { scriptToAddress, type Channel, type FiberBrowserNode, type GetPaymentResult } from '@fiber-pay/sdk/browser';
-import { decryptBytes, decryptResult, toHex } from '../lib/crypto';
-import { decodeText, downloadBlob, formatBytes, isTextLike, maxDeliveryBytes } from '../lib/delivery';
+import { decryptBytes, decryptResult, fromHex, sha256Hex, toHex } from '../lib/crypto';
+import { buildReceipt, decodeText, downloadBlob, formatBytes, isTextLike, maxDeliveryBytes } from '../lib/delivery';
 import { bottle, channelFundingCkb, connectAndOpenChannel, readChannel, ready, startRole } from '../lib/fiber';
 import { createOffer, parseOffer, type Deliverable, type EncryptedOffer } from '../lib/offer';
 import { payForOffer, validateOffer } from '../lib/payment';
@@ -40,7 +40,7 @@ const sampleScript = [
 
 type Upload = { name: string; type: string; bytes: Uint8Array };
 /** Decrypted delivery, kept in memory only (never written to browser storage). */
-type Delivery = { bytes: Uint8Array; text: string | null };
+type Delivery = { bytes: Uint8Array; text: string | null; keyOk: boolean; contentOk: boolean };
 
 export default function Page() {
   const nodes = useRef<Partial<Record<Role, FiberBrowserNode>>>({});
@@ -205,13 +205,31 @@ export default function Page() {
     if (result.status === 'Success' && result.payment_preimage) setKey(result.payment_preimage);
   }
 
-  /** Decrypts with the key revealed by the settled payment. Plaintext stays in memory only. */
+  /**
+   * Decrypts with the key revealed by the settled payment, then proves delivery:
+   * 1. key check: SHA-256(revealed preimage) equals the invoice payment hash;
+   * 2. content check: SHA-256(decrypted bytes) equals the listing's contentHash.
+   * Plaintext stays in memory only.
+   */
   async function unlock() {
     if (!offer || !key || delivery) return;
+    const keyOk = (await sha256Hex(fromHex(key))) === offer.paymentHash.toLowerCase();
     const bytes = await decryptBytes(offer, key);
+    const contentOk = (await sha256Hex(bytes)) === offer.listing.contentHash.toLowerCase();
     const text = isTextLike(offer.listing.fileName, offer.listing.fileType) ? decodeText(bytes) : null;
-    setDelivery({ bytes, text });
-    setStatus(`${offer.listing.fileName} unlocked.`);
+    setDelivery({ bytes, text, keyOk, contentOk });
+    setStatus(keyOk && contentOk ? `${offer.listing.fileName} delivered and verified.` : `${offer.listing.fileName} decrypted, but a check failed.`);
+  }
+
+  /** Proof-of-purchase receipt. It contains the preimage, so it is only downloaded, never stored. */
+  function downloadReceipt() {
+    if (!offer || !delivery || !key || payment?.status !== 'Success') return;
+    const receipt = buildReceipt({
+      listing: offer.listing, invoice: offer.invoice, paymentHash: offer.paymentHash,
+      preimage: key as `0x${string}`, feeShannons: payment.fee,
+      keyMatchesPaymentHash: delivery.keyOk, contentMatchesListing: delivery.contentOk,
+    });
+    downloadBlob(JSON.stringify(receipt, null, 2), `receipt-${offer.paymentHash.slice(2, 10)}.json`, 'application/json');
   }
 
   async function checkPayment() {
@@ -280,13 +298,20 @@ export default function Page() {
       {!tested && <button disabled={busy || !offer} onClick={() => void run(testLock)}>Decrypt without key</button>}
       {canSubmit && <button disabled={busy} onClick={() => void run(pay)}>{attempt ? 'Retry failed payment' : 'Pay 1 CKB'}</button>}
       {attempt && !key && <button disabled={busy || !offer || !addresses.buyer} onClick={() => void run(checkPayment)}>Check payment status</button>}
-      <button disabled={busy || !offer || !key || Boolean(delivery)} onClick={() => void run(unlock)}>Decrypt with revealed key</button>
+      <button disabled={busy || !offer || !key || Boolean(delivery)} onClick={() => void run(unlock)}>Decrypt & verify delivery</button>
     </section></div>
     {payment?.status === 'Success' && <section className="card"><h2>Receipt</h2><p>Amount: 1 CKB · Fee: {ckb(payment.fee)} CKB · Total: {ckb(`0x${(100_000_000n + BigInt(payment.fee)).toString(16)}`)} CKB</p><code>{payment.payment_hash}</code></section>}
     {delivery && offer && <section className="result"><h2>Delivered: {offer.listing.fileName}</h2>
+      <p className={`check ${delivery.keyOk ? 'ok' : 'bad'}`}>{delivery.keyOk
+        ? '✓ Key verified: SHA-256 of the revealed key matches the invoice payment hash'
+        : '✗ Key mismatch: SHA-256 of the revealed key does NOT match the invoice payment hash'}</p>
+      <p className={`check ${delivery.contentOk ? 'ok' : 'bad'}`}>{delivery.contentOk
+        ? '✓ Content verified: this is exactly the file the freelancer committed to in the listing'
+        : '✗ Content mismatch: this file does NOT match the listing commitment'}</p>
       {delivery.text !== null ? <pre>{delivery.text}</pre> : <p>Binary file ({formatBytes(delivery.bytes.length)}). Download it to open.</p>}
       <div className="actions">
         <button onClick={() => downloadBlob(delivery.bytes, offer.listing.fileName, offer.listing.fileType)}>Download {offer.listing.fileName}</button>
+        {payment?.status === 'Success' && <button onClick={downloadReceipt}>Download proof-of-purchase receipt</button>}
       </div>
     </section>}
     {(generated || received) && (!attempt || payment?.status === 'Failed') && <button disabled={busy} onClick={() => void run(async () => startAnotherOffer())}>Start another offer</button>}
