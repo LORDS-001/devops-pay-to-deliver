@@ -9,7 +9,7 @@ invoice, the payment reveals the decryption key, and the app proves delivery twi
 invoice, and the file matches what was listed. Both sides leave with evidence: the freelancer is paid, and
 the client has the file plus a proof-of-purchase receipt.
 
-- ▶ Demo video: <VIDEO_URL>
+- ▶ Demo video: https://youtu.be/ggoIZLfDcaE
 - 🌐 Live demo: https://devops-pay-to-deliver.vercel.app (each visitor funds their own Testnet nodes; the full flow is in the demo video)
 - 📄 Basic quest write-up: https://github.com/LORDS-001/ckb-fiber-campaign8-basic
 
